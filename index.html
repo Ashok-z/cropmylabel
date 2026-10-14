@@ -77,8 +77,10 @@
           <div class="preview-col">
             <div class="preview-meta">
               <span id="pageLabel">Page 1</span>
+              <span><button class="btn" id="btnRotate" type="button" title="Rotate this page 90° clockwise">⟳ Rotate 90°</button></span>
               <span class="hint">Drag the blue box to move it · drag a corner dot to resize</span>
             </div>
+            <p class="page-hint" id="pageHint" role="status" aria-live="polite"></p>
             <div class="preview-wrap" id="previewWrap">
               <canvas id="previewCanvas"></canvas>
               <div class="crop-overlay" id="cropOverlay" aria-label="Crop area">
@@ -92,7 +94,16 @@
               <button class="btn primary" id="btnDownload" type="button">Download 4×6 PDF</button>
               <button class="btn" id="btnPrint" type="button">Print</button>
             </div>
-            <p class="hint">Output pages are exactly 4×6&nbsp;in (288×432&nbsp;pt). The cropped label is scaled to fit inside — never stretched — and centered on a white background.</p>
+            <div class="export-opts">
+              <label for="sizeSelect">Output size:
+                <select id="sizeSelect">
+                  <option value="4x6" selected>4×6 in (101.6 × 152.4 mm)</option>
+                  <option value="100x150">100 × 150 mm</option>
+                </select>
+              </label>
+              <label><input type="checkbox" id="skipBlank" checked> Skip blank pages</label>
+            </div>
+            <p class="hint" id="outputHint"></p>
           </div>
         </div>
       </div>
@@ -115,7 +126,7 @@
         <div class="step">
           <span class="n">3</span>
           <h3>Download &amp; print at 4×6</h3>
-          <p>Get a print-ready 4×6&nbsp;inch PDF and print it at 100% scale with paper size set to 4×6 (100×150&nbsp;mm).</p>
+          <p>Get a print-ready 4×6&nbsp;inch PDF and print it at 100% scale with paper size set to 4×6&nbsp;in (101.6×152.4&nbsp;mm).</p>
         </div>
       </div>
       <p>New to thermal printing? Read the <a href="/how-to.html">step-by-step guide to printing shipping labels on a 4×6 thermal printer</a>, including fixes for labels that print too small or barcodes that won't scan.</p>

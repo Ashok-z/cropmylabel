@@ -1,9 +1,12 @@
 'use strict';
 /* ShipLabelCrop — client-side PDF label cropper.
  * Deps (CDN): pdf.js (render + bbox detection), pdf-lib (output PDF assembly).
- * Output pages are 4x6 inch = 288x432 pt. Crop regions are rasterized at 200 DPI
- * and embedded as PNGs, scaled to FIT inside 4x6 (aspect preserved, centered,
- * white background — never stretched). */
+ * Everything runs locally in the browser: no uploads, no watermark, no accounts.
+ * Output sizes: 4x6 in (288x432 pt) or 100x150 mm (~283.46x425.20 pt), selectable.
+ * Crop regions are rasterized at 200 DPI and embedded as PNGs, scaled to FIT
+ * inside the output page (aspect preserved, centered, white background — never
+ * stretched). Each page keeps an independent crop box and rotation; blank
+ * pages are detected and can be skipped on export. */
 
 (function () {
   if (typeof pdfjsLib === 'undefined' || typeof PDFLib === 'undefined') {
@@ -17,20 +20,48 @@
     return;
   }
   pdfjsLib.GlobalWorkerOptions.workerSrc =
-    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
 
   var $ = function (id) { return document.getElementById(id); };
 
-  // ---- constants: double-check the math ----
+  // ---- output sizes: double-check the math ----
   // PDF points: 72 pt = 1 inch  =>  4 in = 288 pt, 6 in = 432 pt. Correct.
-  var OUT_W_PT = 288, OUT_H_PT = 432;
-  var OUT_DPI = 200;                       // raster resolution of output pages
-  var OUT_W_PX = Math.round(4 * OUT_DPI);  // 800 px
-  var OUT_H_PX = Math.round(6 * OUT_DPI);  // 1200 px  (800x1200 keeps the 4:6 = 2:3 ratio)
-  var MIN_SIZE = 0.03;                     // min crop-box edge, normalized units
+  // 100 mm = 100/25.4 in = 3.9370 in => 283.46 pt; 150 mm = 5.9055 in => 425.20 pt.
+  var OUT_DPI = 200; // raster resolution of output pages
+  var SIZES = {
+    '4x6': {
+      wPt: 288, hPt: 432,
+      wPx: 800, hPx: 1200, // 800x1200 keeps the 4:6 = 2:3 ratio
+      fileSuffix: '-4x6.pdf',
+      shortName: '4×6',
+      paperName: '4×6 in (101.6 × 152.4 mm)',
+      hint: 'Output pages are exactly 4×6 in (101.6×152.4 mm, 288×432 pt). The cropped label is scaled to fit inside — never stretched — and centered on a white background.'
+    },
+    '100x150': {
+      wPt: 100 * 72 / 25.4, hPt: 150 * 72 / 25.4,
+      wPx: 787, hPx: 1181, // 100/25.4*200 = 787.4 px, 150/25.4*200 = 1181.1 px
+      fileSuffix: '-100x150mm.pdf',
+      shortName: '100×150',
+      paperName: '100 × 150 mm',
+      hint: 'Output pages are exactly 100×150 mm (≈283.5×425.2 pt). The cropped label is scaled to fit inside — never stretched — and centered on a white background.'
+    }
+  };
+  function outSize() {
+    var sel = $('sizeSelect');
+    var v = sel && sel.value;
+    return SIZES[v] || SIZES['4x6'];
+  }
+  function exportPages() {
+    var skip = $('skipBlank') && $('skipBlank').checked;
+    return state.pages.filter(function (p) { return !(skip && p.blank); });
+  }
+
+  var MIN_SIZE = 0.03; // min crop-box edge, normalized units
 
   var state = { pdfDoc: null, pages: [], current: 0, fileName: 'labels' };
-  // pages[i] = { page, wPt, hPt, rect:{x,y,w,h} normalized 0..1 (y-down), thumb }
+  // pages[i] = { page, wPt, hPt,
+  //   rect:{x,y,w,h} normalized 0..1 (y-down) in the page's ROTATED frame,
+  //   rot: 0|90|180|270, blank: bool, extra: bool, thumb }
 
   function setStatus(msg, isError) {
     var el = $('status');
@@ -107,24 +138,39 @@
     for (var i = 1; i <= n; i++) {
       var page = await state.pdfDoc.getPage(i);
       var vp1 = page.getViewport({ scale: 1 }); // scale 1 => 72 DPI => CSS px == PDF points
-      var rect = await autoDetect(page, vp1);
-      var thumb = await renderThumb(page, vp1);
-      state.pages.push({ page: page, wPt: vp1.width, hPt: vp1.height, rect: rect, thumb: thumb });
+      var det = await autoDetect(page, 0);
+      var thumb = await renderThumb(page, 0);
+      state.pages.push({
+        page: page, wPt: vp1.width, hPt: vp1.height,
+        rect: { x: det.x, y: det.y, w: det.w, h: det.h },
+        rot: 0, blank: det.blank, extra: det.extra, thumb: thumb
+      });
       renderPageList();
     }
     $('emptyState').hidden = true;
     $('toolUI').hidden = false;
     selectPage(0);
-    setStatus('Ready \u2014 drag the blue box to adjust the crop, then download.');
+    var blanks = state.pages.filter(function (p) { return p.blank; }).length;
+    var msg = 'Ready \u2014 drag the blue box to adjust the crop, then download.';
+    if (blanks > 0) {
+      msg = 'Ready \u2014 detected ' + blanks + ' blank page' + (blanks === 1 ? '' : 's') +
+        ' (skipped on export). Drag the blue box to adjust the crop, then download.';
+    }
+    setStatus(msg);
   }
 
   // ---------------- bbox auto-detect ----------------
-  // Render at ~100 DPI offscreen, find the bounding box of non-white pixels.
-  // Detection runs in canvas pixel space (y-down); the rect is stored normalized
-  // 0..1 so it is resolution-independent. Padding ~4pt, clamped to the page.
-  async function autoDetect(page, vp1) {
+  // Render at ~100 DPI offscreen, build a coarse ink grid, dilate it to bridge
+  // small intra-block gaps (text line spacing, barcode quiet zones), then split
+  // the page into connected components (blocks) separated by significant
+  // whitespace. The largest block is the label candidate; 2+ significant blocks
+  // means there is extra content (e.g. footer instructions) outside the label.
+  // Detection runs in canvas pixel space (y-down), in the page's rotated frame;
+  // the rect is stored normalized 0..1 so it is resolution-independent.
+  // Padding ~4pt, clamped to the page.
+  async function autoDetect(page, rot) {
     var scale = 100 / 72;
-    var viewport = page.getViewport({ scale: scale });
+    var viewport = page.getViewport({ scale: scale, rotation: rot || 0 });
     var canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.ceil(viewport.width));
     canvas.height = Math.max(1, Math.ceil(viewport.height));
@@ -132,38 +178,120 @@
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-    var data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    var W = canvas.width, H = canvas.height;
+    var data = ctx.getImageData(0, 0, W, H).data;
+
     var TH = 240; // a pixel counts as "ink" if any channel is darker than this
-    var minX = canvas.width, minY = canvas.height, maxX = -1, maxY = -1;
-    for (var y = 0; y < canvas.height; y++) {
-      var row = y * canvas.width;
-      for (var x = 0; x < canvas.width; x++) {
-        var o = (row + x) * 4;
+    var CELL = 10; // coarse grid cell size, px at 100 DPI
+    var gw = Math.ceil(W / CELL), gh = Math.ceil(H / CELL);
+    var grid = new Uint8Array(gw * gh); // 1 = cell holds ink
+    var inkTotal = 0;
+    for (var y = 0; y < H; y++) {
+      var rowOff = y * W, grow = (((y / CELL) | 0) * gw);
+      for (var x = 0; x < W; x++) {
+        var o = (rowOff + x) * 4;
         if (data[o] < TH || data[o + 1] < TH || data[o + 2] < TH) {
-          if (x < minX) minX = x;
-          if (x > maxX) maxX = x;
-          if (y < minY) minY = y;
-          if (y > maxY) maxY = y;
+          inkTotal++;
+          grid[grow + ((x / CELL) | 0)] = 1;
         }
       }
     }
-    if (maxX < 0) return { x: 0.05, y: 0.05, w: 0.9, h: 0.9 }; // blank page fallback
+
+    var BLANK_INK_MAX = 200; // fewer ink px than this => blank page
+    if (inkTotal < BLANK_INK_MAX) {
+      return { x: 0.05, y: 0.05, w: 0.9, h: 0.9, blank: true, extra: false };
+    }
+
+    // Dilate (Chebyshev radius DIL cells) so intra-block gaps merge while
+    // blocks separated by significant whitespace stay apart.
+    var DIL = 2;
+    var dg = new Uint8Array(gw * gh);
+    for (var cy = 0; cy < gh; cy++) {
+      for (var cx = 0; cx < gw; cx++) {
+        if (!grid[cy * gw + cx]) continue;
+        for (var dy = -DIL; dy <= DIL; dy++) {
+          var ny = cy + dy;
+          if (ny < 0 || ny >= gh) continue;
+          var nrow = ny * gw;
+          for (var dx = -DIL; dx <= DIL; dx++) {
+            var nx = cx + dx;
+            if (nx < 0 || nx >= gw) continue;
+            dg[nrow + nx] = 1;
+          }
+        }
+      }
+    }
+
+    // Connected components (4-connectivity) on the dilated grid.
+    var comp = new Int32Array(gw * gh);
+    for (var z = 0; z < comp.length; z++) comp[z] = -1;
+    var boxes = [];
+    var stack = [];
+    for (var s = 0; s < gw * gh; s++) {
+      if (!dg[s] || comp[s] !== -1) continue;
+      var ci = boxes.length;
+      var b = { minx: gw, miny: gh, maxx: -1, maxy: -1, cells: 0 };
+      boxes.push(b);
+      stack.length = 0;
+      stack.push(s);
+      comp[s] = ci;
+      while (stack.length) {
+        var c = stack.pop();
+        var px = c % gw, py = (c / gw) | 0;
+        b.cells++;
+        if (px < b.minx) b.minx = px;
+        if (px > b.maxx) b.maxx = px;
+        if (py < b.miny) b.miny = py;
+        if (py > b.maxy) b.maxy = py;
+        if (px > 0 && dg[c - 1] && comp[c - 1] === -1) { comp[c - 1] = ci; stack.push(c - 1); }
+        if (px < gw - 1 && dg[c + 1] && comp[c + 1] === -1) { comp[c + 1] = ci; stack.push(c + 1); }
+        if (py > 0 && dg[c - gw] && comp[c - gw] === -1) { comp[c - gw] = ci; stack.push(c - gw); }
+        if (py < gh - 1 && dg[c + gw] && comp[c + gw] === -1) { comp[c + gw] = ci; stack.push(c + gw); }
+      }
+    }
+
+    // Drop noise specks; the rest are significant blocks, largest first.
+    var sig = boxes.filter(function (bb) { return bb.cells >= 3; });
+    if (!sig.length) {
+      return { x: 0.05, y: 0.05, w: 0.9, h: 0.9, blank: true, extra: false };
+    }
+    sig.sort(function (a, bb) { return bb.cells - a.cells; });
+    var topIdx = boxes.indexOf(sig[0]);
+
+    // Tight bbox from the ORIGINAL (undilated) ink cells of the largest block.
+    var minX = W, minY = H, maxX = -1, maxY = -1;
+    for (var yy = 0; yy < gh; yy++) {
+      for (var xx = 0; xx < gw; xx++) {
+        var gi = yy * gw + xx;
+        if (comp[gi] === topIdx && grid[gi]) {
+          var x0 = xx * CELL, y0 = yy * CELL;
+          if (x0 < minX) minX = x0;
+          if (y0 < minY) minY = y0;
+          if (x0 + CELL - 1 > maxX) maxX = x0 + CELL - 1;
+          if (y0 + CELL - 1 > maxY) maxY = y0 + CELL - 1;
+        }
+      }
+    }
+    if (maxX < 0) return { x: 0.05, y: 0.05, w: 0.9, h: 0.9, blank: true, extra: false };
     var pad = 6; // px at 100 DPI ~= 4.3 pt
     minX = Math.max(0, minX - pad);
     minY = Math.max(0, minY - pad);
-    maxX = Math.min(canvas.width - 1, maxX + pad);
-    maxY = Math.min(canvas.height - 1, maxY + pad);
+    maxX = Math.min(W - 1, maxX + pad);
+    maxY = Math.min(H - 1, maxY + pad);
     return {
-      x: minX / canvas.width,
-      y: minY / canvas.height,
-      w: (maxX - minX + 1) / canvas.width,
-      h: (maxY - minY + 1) / canvas.height
+      x: minX / W,
+      y: minY / H,
+      w: (maxX - minX + 1) / W,
+      h: (maxY - minY + 1) / H,
+      blank: false,
+      extra: sig.length >= 2
     };
   }
 
-  async function renderThumb(page, vp1) {
-    var scale = 150 / vp1.width;
-    var viewport = page.getViewport({ scale: scale });
+  async function renderThumb(page, rot) {
+    var base = page.getViewport({ scale: 1, rotation: rot || 0 });
+    var scale = 150 / base.width;
+    var viewport = page.getViewport({ scale: scale, rotation: rot || 0 });
     var canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.ceil(viewport.width));
     canvas.height = Math.max(1, Math.ceil(viewport.height));
@@ -181,13 +309,19 @@
     state.pages.forEach(function (p, idx) {
       var b = document.createElement('button');
       b.type = 'button';
-      b.className = 'page-thumb' + (idx === state.current ? ' active' : '');
+      b.className = 'page-thumb' + (idx === state.current ? ' active' : '') + (p.blank ? ' blank' : '');
       var img = document.createElement('img');
       img.src = p.thumb;
       img.alt = 'Page ' + (idx + 1) + ' thumbnail';
       b.appendChild(img);
       var cap = document.createElement('div');
       cap.textContent = 'Page ' + (idx + 1);
+      if (p.blank) {
+        var tag = document.createElement('span');
+        tag.className = 'blank-tag';
+        tag.textContent = ' · blank';
+        cap.appendChild(tag);
+      }
       b.appendChild(cap);
       b.addEventListener('click', function () { selectPage(idx); });
       list.appendChild(b);
@@ -200,8 +334,10 @@
     var wrap = $('previewWrap');
     var cssW = Math.min(680, wrap.clientWidth || 680);
     var dpr = Math.min(2, window.devicePixelRatio || 1);
+    var v1 = p.page.getViewport({ scale: 1, rotation: p.rot });
+    p.wPt = v1.width; p.hPt = v1.height;
     var scale = (cssW * dpr) / p.wPt;
-    var viewport = p.page.getViewport({ scale: scale });
+    var viewport = p.page.getViewport({ scale: scale, rotation: p.rot });
     var canvas = $('previewCanvas');
     canvas.width = Math.max(1, Math.ceil(viewport.width));
     canvas.height = Math.max(1, Math.ceil(viewport.height));
@@ -213,11 +349,33 @@
     setStatus('Rendering page ' + (i + 1) + '\u2026');
     await p.page.render({ canvasContext: ctx, viewport: viewport }).promise;
     drawOverlay();
-    $('pageLabel').textContent = 'Page ' + (i + 1) + ' of ' + state.pages.length;
+    var label = 'Page ' + (i + 1) + ' of ' + state.pages.length;
+    if (p.rot) label += ' \u00b7 ' + p.rot + '\u00b0';
+    if (p.blank) label += ' \u00b7 blank';
+    $('pageLabel').textContent = label;
     Array.prototype.forEach.call($('pageList').children, function (el, idx) {
       el.classList.toggle('active', idx === i);
     });
+    updatePageHint();
     setStatus('');
+  }
+
+  function updatePageHint() {
+    var el = $('pageHint');
+    if (!el) return;
+    var msg = '';
+    if (state.pages.length) {
+      var p = state.pages[state.current];
+      if (p.blank) {
+        msg = ($('skipBlank') && $('skipBlank').checked)
+          ? 'Blank page detected \u2014 it will be skipped on export.'
+          : 'Blank page detected \u2014 it will be exported as a blank page.';
+      } else if (p.extra) {
+        msg = 'Detected extra content outside the label \u2014 drag the blue box to adjust if needed.';
+      }
+    }
+    el.textContent = msg;
+    el.style.display = msg ? '' : 'none';
   }
 
   function drawOverlay() {
@@ -302,16 +460,20 @@
     overlay.addEventListener('pointercancel', endDrag);
   }
 
-  // ---------------- output: build the 4x6 PDF ----------------
-  // For each page: render at 200 DPI, cut out the crop rect, scale to FIT inside
-  // 800x1200 px (the 4:6 ratio), center on white, embed as PNG into a 288x432 pt page.
+  // ---------------- output: build the PDF ----------------
+  // For each exported page: render the page at 200 DPI in its rotated frame,
+  // cut out the crop rect, scale to FIT inside the output page (aspect
+  // preserved, centered, white background — never stretched), embed as PNG.
   async function buildOutputPdf() {
+    var sz = outSize();
+    var work = exportPages();
+    if (!work.length) throw new Error('all pages are blank');
     var out = await PDFLib.PDFDocument.create();
-    var total = state.pages.length;
+    var total = work.length;
     for (var idx = 0; idx < total; idx++) {
-      var p = state.pages[idx];
+      var p = work[idx];
       setStatus('Building page ' + (idx + 1) + ' of ' + total + '\u2026');
-      var viewport = p.page.getViewport({ scale: OUT_DPI / 72 });
+      var viewport = p.page.getViewport({ scale: OUT_DPI / 72, rotation: p.rot });
       var src = document.createElement('canvas');
       src.width = Math.max(1, Math.ceil(viewport.width));
       src.height = Math.max(1, Math.ceil(viewport.height));
@@ -326,21 +488,21 @@
       var sh = Math.max(1, Math.round(r.h * src.height));
 
       var dst = document.createElement('canvas');
-      dst.width = OUT_W_PX; dst.height = OUT_H_PX;
+      dst.width = sz.wPx; dst.height = sz.hPx;
       var dctx = dst.getContext('2d');
       dctx.fillStyle = '#ffffff';
-      dctx.fillRect(0, 0, OUT_W_PX, OUT_H_PX);
-      var fit = Math.min(OUT_W_PX / sw, OUT_H_PX / sh); // fit INSIDE: never stretches
+      dctx.fillRect(0, 0, sz.wPx, sz.hPx);
+      var fit = Math.min(sz.wPx / sw, sz.hPx / sh); // fit INSIDE: never stretches
       var dw = sw * fit, dh = sh * fit;
-      dctx.drawImage(src, sx, sy, sw, sh, (OUT_W_PX - dw) / 2, (OUT_H_PX - dh) / 2, dw, dh);
+      dctx.drawImage(src, sx, sy, sw, sh, (sz.wPx - dw) / 2, (sz.hPx - dh) / 2, dw, dh);
 
       var blob = await new Promise(function (resolve) { dst.toBlob(resolve, 'image/png'); });
       if (!blob) throw new Error('canvas render failed');
       var pngBytes = new Uint8Array(await blob.arrayBuffer());
       var png = await out.embedPng(pngBytes);
-      var pg = out.addPage([OUT_W_PT, OUT_H_PT]);
+      var pg = out.addPage([sz.wPt, sz.hPt]);
       // PNG top row maps to the top of the page in pdf-lib's drawImage: upright.
-      pg.drawImage(png, { x: 0, y: 0, width: OUT_W_PT, height: OUT_H_PT });
+      pg.drawImage(png, { x: 0, y: 0, width: sz.wPt, height: sz.hPt });
     }
     return await out.save();
   }
@@ -365,10 +527,30 @@
       setStatus('Re-detecting labels on all pages\u2026');
       for (var i = 0; i < state.pages.length; i++) {
         var p = state.pages[i];
-        p.rect = await autoDetect(p.page, p.page.getViewport({ scale: 1 }));
+        var det = await autoDetect(p.page, p.rot);
+        p.rect = { x: det.x, y: det.y, w: det.w, h: det.h };
+        p.blank = det.blank;
+        p.extra = det.extra;
       }
+      renderPageList();
       drawOverlay();
+      updatePageHint();
       setStatus('Auto-detect applied to all pages. Adjust any box by dragging.');
+    });
+
+    $('btnRotate').addEventListener('click', async function () {
+      if (!state.pages.length) return;
+      var p = state.pages[state.current];
+      p.rot = (p.rot + 90) % 360;
+      setStatus('Rotating page ' + (state.current + 1) + '\u2026');
+      var det = await autoDetect(p.page, p.rot);
+      p.rect = { x: det.x, y: det.y, w: det.w, h: det.h };
+      p.blank = det.blank;
+      p.extra = det.extra;
+      p.thumb = await renderThumb(p.page, p.rot);
+      renderPageList();
+      await selectPage(state.current);
+      setStatus('Page rotated to ' + p.rot + '\u00b0. Adjust the crop box if needed.');
     });
 
     $('btnCopyAll').addEventListener('click', function () {
@@ -384,11 +566,19 @@
       var btn = $('btnDownload');
       try {
         btn.disabled = true;
+        var sz = outSize();
         var bytes = await buildOutputPdf();
-        downloadBytes(bytes, state.fileName + '-4x6.pdf');
-        setStatus('Done \u2014 ' + state.fileName + '-4x6.pdf downloaded. Print it at 100% scale on 4\u00d76 paper.');
+        var fname = state.fileName + sz.fileSuffix;
+        downloadBytes(bytes, fname);
+        var n = exportPages().length;
+        setStatus('Done \u2014 ' + fname + ' downloaded (' + n + ' page' + (n === 1 ? '' : 's') +
+          '). Print it at 100% scale on ' + sz.paperName + ' paper.');
       } catch (e) {
-        setStatus('Something went wrong while building the PDF. Please try again.', true);
+        if (e && /blank/.test(e.message || '')) {
+          setStatus('All pages are blank \u2014 nothing to export.', true);
+        } else {
+          setStatus('Something went wrong while building the PDF. Please try again.', true);
+        }
       } finally {
         btn.disabled = false;
       }
@@ -414,7 +604,7 @@
             printFrame.contentWindow.focus();
             printFrame.contentWindow.print();
           } catch (e) { /* popup/print blocked: user can download instead */ }
-          setStatus('Print dialog opened \u2014 set paper size to 4\u00d76 in (100\u00d7150 mm) and scale to 100%.');
+          setStatus('Print dialog opened \u2014 set paper size to 4\u00d76 in (101.6\u00d7152.4 mm) and scale to 100%.');
         };
         printFrame.src = url;
       } catch (e) {
@@ -427,9 +617,23 @@
     $('btnReset').addEventListener('click', resetAll);
   }
 
+  // ---------------- export options ----------------
+  function initExportOpts() {
+    var sel = $('sizeSelect');
+    function sync() {
+      var sz = outSize();
+      $('outputHint').textContent = sz.hint;
+      $('btnDownload').textContent = 'Download ' + sz.shortName + ' PDF';
+    }
+    sel.addEventListener('change', sync);
+    $('skipBlank').addEventListener('change', updatePageHint);
+    sync();
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     initIntake();
     initOverlay();
     initButtons();
+    initExportOpts();
   });
 })();
