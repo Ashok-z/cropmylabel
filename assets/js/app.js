@@ -20,7 +20,7 @@
     return;
   }
   pdfjsLib.GlobalWorkerOptions.workerSrc =
-    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
   var $ = function (id) { return document.getElementById(id); };
 
@@ -124,10 +124,20 @@
     }
     setStatus('Loading PDF\u2026');
     try {
-      state.pdfDoc = await pdfjsLib.getDocument({ data: bytes }).promise;
+      // Timeout guard: a misconfigured worker (or a stalled CDN) must never
+      // leave the UI stuck on "Loading PDF…" forever.
+      var loadPromise = pdfjsLib.getDocument({ data: bytes }).promise;
+      var timeoutPromise = new Promise(function (_, reject) {
+        setTimeout(function () {
+          reject({ name: 'LoadTimeout', message: 'Timed out while loading the PDF.' });
+        }, 30000);
+      });
+      state.pdfDoc = await Promise.race([loadPromise, timeoutPromise]);
     } catch (err) {
       if (err && err.name === 'PasswordException') {
         setStatus('This PDF is password-protected. Please remove the password in your PDF reader and try again.', true);
+      } else if (err && err.name === 'LoadTimeout') {
+        setStatus('Loading the PDF timed out. Please check your connection and try again.', true);
       } else {
         setStatus('Could not read this PDF. It may be corrupted.', true);
       }
