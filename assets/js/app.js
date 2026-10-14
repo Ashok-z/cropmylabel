@@ -173,8 +173,10 @@
   // Render at ~100 DPI offscreen, build a coarse ink grid, dilate it to bridge
   // small intra-block gaps (text line spacing, barcode quiet zones), then split
   // the page into connected components (blocks) separated by significant
-  // whitespace. The largest block is the label candidate; 2+ significant blocks
-  // means there is extra content (e.g. footer instructions) outside the label.
+  // whitespace. Blocks near the largest block (gap <= ~15% of page height)
+  // are merged as sections of the same label (address + barcode + tracking);
+  // a distant block (e.g. footer instructions) stays separate and raises the
+  // "extra content" hint instead of being silently included or dropped.
   // Detection runs in canvas pixel space (y-down), in the page's rotated frame;
   // the rect is stored normalized 0..1 so it is resolution-independent.
   // Padding ~4pt, clamped to the page.
@@ -266,35 +268,67 @@
       return { x: 0.05, y: 0.05, w: 0.9, h: 0.9, blank: true, extra: false };
     }
     sig.sort(function (a, bb) { return bb.cells - a.cells; });
-    var topIdx = boxes.indexOf(sig[0]);
 
-    // Tight bbox from the ORIGINAL (undilated) ink cells of the largest block.
-    var minX = W, minY = H, maxX = -1, maxY = -1;
-    for (var yy = 0; yy < gh; yy++) {
-      for (var xx = 0; xx < gw; xx++) {
-        var gi = yy * gw + xx;
-        if (comp[gi] === topIdx && grid[gi]) {
-          var x0 = xx * CELL, y0 = yy * CELL;
-          if (x0 < minX) minX = x0;
-          if (y0 < minY) minY = y0;
-          if (x0 + CELL - 1 > maxX) maxX = x0 + CELL - 1;
-          if (y0 + CELL - 1 > maxY) maxY = y0 + CELL - 1;
+    // Tight bbox from ORIGINAL (undilated) ink cells, for one component.
+    function tightBox(topIdx) {
+      var minX = W, minY = H, maxX = -1, maxY = -1;
+      for (var yy = 0; yy < gh; yy++) {
+        for (var xx = 0; xx < gw; xx++) {
+          var gi = yy * gw + xx;
+          if (comp[gi] === topIdx && grid[gi]) {
+            var x0 = xx * CELL, y0 = yy * CELL;
+            if (x0 < minX) minX = x0;
+            if (y0 < minY) minY = y0;
+            if (x0 + CELL - 1 > maxX) maxX = x0 + CELL - 1;
+            if (y0 + CELL - 1 > maxY) maxY = y0 + CELL - 1;
+          }
+        }
+      }
+      if (maxX < 0) return null;
+      return { x0: minX, y0: minY, x1: maxX, y1: maxY };
+    }
+
+    // Merge blocks that belong to the same label: seed with the largest block
+    // and absorb any significant block whose edge-to-edge gap to the running
+    // union is within GAP_MAX. Sections of one label (e.g. address block +
+    // barcode block with whitespace between them) merge; a distant footer /
+    // instructions block stays separate and keeps the "extra content" hint.
+    var GAP_MAX = Math.max(60, H * 0.15); // px at 100 DPI
+    var mergedIdx = [boxes.indexOf(sig[0])];
+    var ub = tightBox(mergedIdx[0]);
+    var changed = true;
+    while (changed && ub) {
+      changed = false;
+      for (var i = 1; i < sig.length; i++) {
+        var bi = boxes.indexOf(sig[i]);
+        if (mergedIdx.indexOf(bi) !== -1) continue;
+        var b = tightBox(bi);
+        if (!b) continue;
+        var dx = Math.max(ub.x0 - b.x1, b.x0 - ub.x1, 0);
+        var dy = Math.max(ub.y0 - b.y1, b.y0 - ub.y1, 0);
+        if (Math.sqrt(dx * dx + dy * dy) <= GAP_MAX) {
+          mergedIdx.push(bi);
+          if (b.x0 < ub.x0) ub.x0 = b.x0;
+          if (b.y0 < ub.y0) ub.y0 = b.y0;
+          if (b.x1 > ub.x1) ub.x1 = b.x1;
+          if (b.y1 > ub.y1) ub.y1 = b.y1;
+          changed = true;
         }
       }
     }
-    if (maxX < 0) return { x: 0.05, y: 0.05, w: 0.9, h: 0.9, blank: true, extra: false };
+    if (!ub) return { x: 0.05, y: 0.05, w: 0.9, h: 0.9, blank: true, extra: false };
     var pad = 6; // px at 100 DPI ~= 4.3 pt
-    minX = Math.max(0, minX - pad);
-    minY = Math.max(0, minY - pad);
-    maxX = Math.min(W - 1, maxX + pad);
-    maxY = Math.min(H - 1, maxY + pad);
+    var minX = Math.max(0, ub.x0 - pad);
+    var minY = Math.max(0, ub.y0 - pad);
+    var maxX = Math.min(W - 1, ub.x1 + pad);
+    var maxY = Math.min(H - 1, ub.y1 + pad);
     return {
       x: minX / W,
       y: minY / H,
       w: (maxX - minX + 1) / W,
       h: (maxY - minY + 1) / H,
       blank: false,
-      extra: sig.length >= 2
+      extra: sig.length > mergedIdx.length // some block(s) left out: genuinely separate content
     };
   }
 
