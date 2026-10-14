@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How to Print a Shipping Label on a 4×6 Thermal Printer (Step by Step)</title>
+  <meta name="description" content="Step-by-step guide to printing shipping labels on a 4×6 thermal printer: correct paper size, scaling settings, and fixes for labels that print too small, get cut off, or won't scan.">
+  <link rel="canonical" href="https://cropmylabel.com/how-to.html">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="How to Print a Shipping Label on a 4×6 Thermal Printer">
+  <meta property="og:description" content="Paper size, scaling, and troubleshooting for 4×6 thermal label printing — Rollo, Dymo, Munbyn and similar printers.">
+  <meta property="og:url" content="https://cropmylabel.com/how-to.html">
+  <meta name="twitter:card" content="summary">
+  <link rel="stylesheet" href="/assets/css/styles.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%232563eb'/%3E%3Crect x='14' y='18' width='36' height='28' rx='2' fill='none' stroke='white' stroke-width='4'/%3E%3C/svg%3E">
+</head>
+<body>
+  <header class="site-header">
+    <div class="nav-inner">
+      <a class="brand" href="/">ShipLabel<span>Crop</span></a>
+      <nav class="nav-links" aria-label="Main">
+        <a href="/">Crop Tool</a>
+        <a href="/how-to.html" aria-current="page">How-To Guide</a>
+        <a href="/faq.html">FAQ</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <h1>How to Print a Shipping Label on a 4×6 Thermal Printer</h1>
+    <p class="lead">If your shipping label prints tiny in the corner, gets cut off, or the barcode won't scan, the culprit is almost always paper-size scaling — not your printer. Follow these steps once and it stays fixed.</p>
+
+    <h2>The 4 steps</h2>
+    <ol class="tight">
+      <li>
+        <strong>Download your label as a PDF</strong> from your marketplace or carrier (Amazon, Etsy, eBay, Vinted, Shopify, DHL, UPS, USPS, FedEx). If the only options are A4 or Letter, that's fine — step 2 handles it.
+      </li>
+      <li>
+        <strong>Crop it to 4×6.</strong> Open the <a href="/">free label cropper</a>, drop in your PDF, check the auto-detected crop box, and download the 4×6&nbsp;inch version. This removes the single biggest cause of mis-sized prints: an A4 page being squeezed onto 4×6 stock.
+      </li>
+      <li>
+        <strong>Set the paper size to 4×6 in (100×150&nbsp;mm) and scaling to 100%.</strong> In the print dialog:
+        <ul>
+          <li><strong>Paper size:</strong> 4"×6" (may appear as 100×150&nbsp;mm)</li>
+          <li><strong>Scale:</strong> 100% / "Actual size" — turn <em>off</em> "Fit to page", "Shrink to fit", or "Fit to printable area"</li>
+          <li><strong>Orientation:</strong> Portrait, unless your label is visibly landscape</li>
+        </ul>
+        Most thermal printers (Rollo, Dymo, Munbyn and similar) have no screen — every setting lives in your computer's print dialog or the vendor's app. On Windows: Settings → Devices → Printers → your printer → Printing preferences → paper size 4×6. On Mac: print dialog → Paper Size → 4×6. In Chrome: print → More settings → Paper size.
+      </li>
+      <li>
+        <strong>Print one test label and scan the barcode</strong> with your phone before running the whole batch. If it scans, you're done — these settings persist.
+      </li>
+    </ol>
+
+    <h2>Troubleshooting</h2>
+
+    <h3>Label prints too small (tiny, in the corner)</h3>
+    <p>This is the classic symptom of an A4/Letter PDF printed on 4×6 stock, or "Fit to page" shrinking everything. Fix: crop the PDF to 4×6 first, then print with paper size 4×6 and scale at 100%.</p>
+
+    <h3>Label is cut off at the edges</h3>
+    <p>Paper-size mismatch: the printer thinks the stock is 4×6 but the PDF page is still A4/Letter, so content outside the 4×6 area is clipped. Fix: use the cropped 4×6 PDF <em>and</em> set the paper size to 4×6 — both must match.</p>
+
+    <h3>Barcode prints but won't scan</h3>
+    <p>Scaling is the usual suspect: when a label is shrunk to fit, the bars get thinner than the scanner's minimum and the bar/space ratio breaks. Fix: reprint from the cropped PDF at exactly 100% scale. If it still fails, raise the printer's print density/darkness one notch — faint bars also fail to scan.</p>
+
+    <h3>Label prints sideways</h3>
+    <p>Orientation mismatch between the PDF and the printer setting. Fix: match the orientation to the label (most shipping labels are portrait) in the print dialog.</p>
+
+    <h3>Blank label feeds between prints</h3>
+    <p>The printer needs calibration for the new stock. Fix: with labels loaded, press and hold the feed button until it feeds correctly (check your model's manual — on most Rollo/Dymo-style printers it's a 3–5 second hold).</p>
+
+    <h3>Prints fine from one app but not another</h3>
+    <p>Paper-size and scaling settings are per-application on most systems. Fix: set 4×6 + 100% in each app you print from (browser, PDF reader, shipping software).</p>
+
+    <p>Still stuck on the cropping step? <a href="/">Crop your label to 4×6 here — free, no upload, no watermark.</a></p>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <span>© 2026 ShipLabelCrop — free 4×6 shipping label tools.</span>
+      <nav aria-label="Footer">
+        <a href="/">Crop Tool</a>
+        <a href="/how-to.html">How-To Guide</a>
+        <a href="/faq.html">FAQ</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

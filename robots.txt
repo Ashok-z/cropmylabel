@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://cropmylabel.com/sitemap.xml

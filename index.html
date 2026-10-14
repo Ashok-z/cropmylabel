@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Free Shipping Label Cropper — Crop PDF Labels to 4×6 for Thermal Printers</title>
+  <meta name="description" content="Free online tool to crop A4/Letter shipping label PDFs to 4×6 inch for thermal printers. 100% in your browser — no upload, no watermark, no sign-up.">
+  <link rel="canonical" href="https://cropmylabel.com/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Free Shipping Label Cropper — Crop PDF Labels to 4×6">
+  <meta property="og:description" content="Crop A4/Letter shipping label PDFs to 4×6 inch for thermal printers. Free forever, no upload, no watermark — everything runs in your browser.">
+  <meta property="og:url" content="https://cropmylabel.com/">
+  <meta name="twitter:card" content="summary">
+  <link rel="stylesheet" href="/assets/css/styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "ShipLabelCrop — Free 4×6 Shipping Label Cropper",
+    "applicationCategory": "UtilitiesApplication",
+    "operatingSystem": "Web",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "description": "Free browser-based tool that crops A4/Letter shipping label PDFs to 4×6 inch pages for thermal printers. No upload, no watermark."
+  }
+  </script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%232563eb'/%3E%3Crect x='14' y='18' width='36' height='28' rx='2' fill='none' stroke='white' stroke-width='4'/%3E%3C/svg%3E">
+</head>
+<body>
+  <header class="site-header">
+    <div class="nav-inner">
+      <a class="brand" href="/">ShipLabel<span>Crop</span></a>
+      <nav class="nav-links" aria-label="Main">
+        <a href="/" aria-current="page">Crop Tool</a>
+        <a href="/how-to.html">How-To Guide</a>
+        <a href="/faq.html">FAQ</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <h1>Crop Shipping Labels to 4×6 — Free, In Your Browser</h1>
+      <p class="lead">Upload any A4 or Letter shipping label PDF. We auto-detect the label, you fine-tune the crop box, and you download a print-ready 4×6&nbsp;inch PDF for your thermal printer.</p>
+    </section>
+
+    <div class="privacy-banner" role="note">
+      <span class="lock" aria-hidden="true">🔒</span>
+      <div>
+        <strong>100% in your browser — files never leave your device.</strong>
+        No upload, no watermark, no account, free forever. Your labels stay private because they never touch our servers.
+      </div>
+    </div>
+
+    <section aria-label="Crop tool">
+      <div id="emptyState">
+        <div class="dropzone" id="dropZone" role="button" tabindex="0" aria-label="Upload a PDF shipping label">
+          <p class="dz-title">Drag &amp; drop your label PDF here</p>
+          <p>or</p>
+          <p><button class="btn primary" id="browseBtn" type="button">Choose PDF File</button></p>
+          <p class="hint">Accepts .pdf — single or multi-page. Works with Amazon, Etsy, eBay, Vinted, DHL, UPS, USPS and other carrier labels.</p>
+          <input type="file" id="fileInput" accept=".pdf,application/pdf" hidden>
+        </div>
+      </div>
+
+      <div id="toolUI" hidden>
+        <div class="btn-row" role="toolbar" aria-label="Crop actions">
+          <button class="btn" id="btnDetectAll" type="button">Auto-detect all pages</button>
+          <button class="btn" id="btnCopyAll" type="button">Copy this crop to all pages</button>
+          <button class="btn" id="btnReset" type="button">Start over</button>
+        </div>
+        <div class="tool-layout">
+          <div>
+            <div class="page-list" id="pageList" aria-label="Pages"></div>
+          </div>
+          <div class="preview-col">
+            <div class="preview-meta">
+              <span id="pageLabel">Page 1</span>
+              <span class="hint">Drag the blue box to move it · drag a corner dot to resize</span>
+            </div>
+            <div class="preview-wrap" id="previewWrap">
+              <canvas id="previewCanvas"></canvas>
+              <div class="crop-overlay" id="cropOverlay" aria-label="Crop area">
+                <span class="handle nw" data-corner="nw"></span>
+                <span class="handle ne" data-corner="ne"></span>
+                <span class="handle sw" data-corner="sw"></span>
+                <span class="handle se" data-corner="se"></span>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="btn primary" id="btnDownload" type="button">Download 4×6 PDF</button>
+              <button class="btn" id="btnPrint" type="button">Print</button>
+            </div>
+            <p class="hint">Output pages are exactly 4×6&nbsp;in (288×432&nbsp;pt). The cropped label is scaled to fit inside — never stretched — and centered on a white background.</p>
+          </div>
+        </div>
+      </div>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section aria-label="How it works">
+      <h2>How it works</h2>
+      <div class="steps">
+        <div class="step">
+          <span class="n">1</span>
+          <h3>Upload your label PDF</h3>
+          <p>Drag in the A4 or Letter PDF you downloaded from your marketplace or carrier. Nothing is uploaded — it stays on your device.</p>
+        </div>
+        <div class="step">
+          <span class="n">2</span>
+          <h3>Adjust the crop box</h3>
+          <p>We auto-detect the label area on every page. Drag the blue box or its corner dots if the detection needs a nudge.</p>
+        </div>
+        <div class="step">
+          <span class="n">3</span>
+          <h3>Download &amp; print at 4×6</h3>
+          <p>Get a print-ready 4×6&nbsp;inch PDF and print it at 100% scale with paper size set to 4×6 (100×150&nbsp;mm).</p>
+        </div>
+      </div>
+      <p>New to thermal printing? Read the <a href="/how-to.html">step-by-step guide to printing shipping labels on a 4×6 thermal printer</a>, including fixes for labels that print too small or barcodes that won't scan.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <span>© 2026 ShipLabelCrop — free 4×6 shipping label tools.</span>
+      <nav aria-label="Footer">
+        <a href="/">Crop Tool</a>
+        <a href="/how-to.html">How-To Guide</a>
+        <a href="/faq.html">FAQ</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script src="/assets/js/app.js"></script>
+</body>
+</html>

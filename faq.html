@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FAQ — Free 4×6 Shipping Label Cropper</title>
+  <meta name="description" content="Frequently asked questions about cropping shipping label PDFs to 4×6: privacy, barcode accuracy, multi-page PDFs, Vinted/DHL/Amazon labels, and why 4×6 is the thermal printer standard.">
+  <link rel="canonical" href="https://cropmylabel.com/faq.html">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="FAQ — Free 4×6 Shipping Label Cropper">
+  <meta property="og:description" content="Privacy, accuracy, multi-page PDFs, carrier compatibility — answers about the free 4×6 shipping label cropper.">
+  <meta property="og:url" content="https://cropmylabel.com/faq.html">
+  <meta name="twitter:card" content="summary">
+  <link rel="stylesheet" href="/assets/css/styles.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Is my label PDF uploaded to your servers?",
+        "acceptedAnswer": { "@type": "Answer", "text": "No. Everything runs locally in your browser using JavaScript. Your file never leaves your device — there is no upload, no account, and nothing to delete afterwards." }
+      },
+      {
+        "@type": "Question",
+        "name": "Will the barcode still scan after cropping?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. The crop box is scaled to fit inside the 4×6 page without stretching, rendered at 200 DPI, and centered. Print at 100% scale with paper size set to 4×6 and the barcode keeps its scannable proportions." }
+      },
+      {
+        "@type": "Question",
+        "name": "Does it work with multi-page PDFs?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. Each page gets its own auto-detected crop box that you can adjust individually, or copy one page's crop box to all pages with a single click." }
+      },
+      {
+        "@type": "Question",
+        "name": "Does it work with Vinted, DHL, Amazon, UPS or USPS labels?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. Any carrier or marketplace label saved as a PDF works — the tool detects the label area visually rather than depending on a specific layout. If auto-detect misses, drag the box manually." }
+      },
+      {
+        "@type": "Question",
+        "name": "Why 4×6 inches?",
+        "acceptedAnswer": { "@type": "Answer", "text": "4×6 in (100×150 mm) is the standard label size for thermal shipping printers such as Rollo, Dymo and Munbyn. Printing an A4 or Letter PDF on 4×6 stock without cropping is what causes tiny or cut-off labels." }
+      },
+      {
+        "@type": "Question",
+        "name": "Is it really free? Is there a watermark?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Free forever, no watermark, no sign-up, no usage limits. That is the point — several competing tools watermark their free conversions; this one does not." }
+      },
+      {
+        "@type": "Question",
+        "name": "What if auto-detect selects the wrong area?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Drag the blue box to move it and pull its corner dots to resize it. Detection looks for the non-white bounding box, so unusual layouts may need a manual nudge." }
+      },
+      {
+        "@type": "Question",
+        "name": "My PDF is password-protected. Can I still use the tool?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Not directly — encrypted PDFs cannot be opened in the browser. Remove the password in your PDF reader first (usually via Print to PDF), then upload the unlocked file." }
+      }
+    ]
+  }
+  </script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%232563eb'/%3E%3Crect x='14' y='18' width='36' height='28' rx='2' fill='none' stroke='white' stroke-width='4'/%3E%3C/svg%3E">
+</head>
+<body>
+  <header class="site-header">
+    <div class="nav-inner">
+      <a class="brand" href="/">ShipLabel<span>Crop</span></a>
+      <nav class="nav-links" aria-label="Main">
+        <a href="/">Crop Tool</a>
+        <a href="/how-to.html">How-To Guide</a>
+        <a href="/faq.html" aria-current="page">FAQ</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <h1>Frequently Asked Questions</h1>
+    <p class="lead">About the free 4×6 shipping label cropper.</p>
+
+    <div class="faq-item">
+      <h2>Is my label PDF uploaded to your servers?</h2>
+      <div class="a"><p>No. Everything runs locally in your browser using JavaScript. Your file never leaves your device — there is no upload, no account, and nothing to delete afterwards. That's also why the tool works offline once the page has loaded.</p></div>
+    </div>
+
+    <div class="faq-item">
+      <h2>Will the barcode still scan after cropping?</h2>
+      <div class="a"><p>Yes. The crop box is scaled to <em>fit inside</em> the 4×6 page — never stretched — rendered at 200 DPI, and centered on a white background. Print at 100% scale with paper size set to 4×6&nbsp;in (100×150&nbsp;mm) and the barcode keeps the exact proportions the scanner expects.</p></div>
+    </div>
+
+    <div class="faq-item">
+      <h2>Does it work with multi-page PDFs?</h2>
+      <div class="a"><p>Yes. Each page gets its own auto-detected crop box that you can adjust individually. If every page has the same layout, use "Copy this crop to all pages" and you're done in one click.</p></div>
+    </div>
+
+    <div class="faq-item">
+      <h2>Does it work with Vinted, DHL, Amazon, UPS or USPS labels?</h2>
+      <div class="a"><p>Yes. Any carrier or marketplace label saved as a PDF works. The tool finds the label area visually (the non-white bounding box) instead of depending on a specific layout, so unusual formats are fine — and if auto-detect misses, you can drag the box manually.</p></div>
+    </div>
+
+    <div class="faq-item">
+      <h2>Why 4×6 inches?</h2>
+      <div class="a"><p>4×6&nbsp;in (100×150&nbsp;mm) is the standard label size for thermal shipping printers such as Rollo, Dymo and Munbyn. Printing an A4 or Letter PDF on 4×6 stock without cropping is exactly what causes tiny, cut-off, or unscannable labels.</p></div>
+    </div>
+
+    <div class="faq-item">
+      <h2>Is it really free? Is there a watermark?</h2>
+      <div class="a"><p>Free forever, no watermark, no sign-up, no usage limits. That is the point — several competing tools watermark their free conversions. This one doesn't, because your file never even reaches a server.</p></div>
+    </div>
+
+    <div class="faq-item">
+      <h2>What if auto-detect selects the wrong area?</h2>
+      <div class="a"><p>Drag the blue box to move it and pull its corner dots to resize it. Detection looks for the non-white bounding box on a white background, so labels with unusual layouts or dark backgrounds may need a manual nudge — that's what the box is for.</p></div>
+    </div>
+
+    <div class="faq-item">
+      <h2>My PDF is password-protected. Can I still use the tool?</h2>
+      <div class="a"><p>Not directly — encrypted PDFs can't be opened in the browser for privacy reasons. Remove the password in your PDF reader first (usually via "Print to PDF"), then upload the unlocked file.</p></div>
+    </div>
+
+    <p>Ready to fix a label? <a href="/">Crop it to 4×6 here</a> — or read the <a href="/how-to.html">full printing guide</a> first.</p>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <span>© 2026 ShipLabelCrop — free 4×6 shipping label tools.</span>
+      <nav aria-label="Footer">
+        <a href="/">Crop Tool</a>
+        <a href="/how-to.html">How-To Guide</a>
+        <a href="/faq.html">FAQ</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>
