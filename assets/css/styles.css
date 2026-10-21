@@ -122,6 +122,7 @@ ul.tight li, ol.tight li { margin-bottom: 0.5rem; }
 .dropzone p { margin: 0.4rem 0; color: var(--muted); }
 .dropzone .dz-title { font-size: 1.15rem; font-weight: 700; color: var(--ink); }
 
+[hidden] { display: none !important; }
 .btn {
   display: inline-block;
   border: 1px solid var(--line);
