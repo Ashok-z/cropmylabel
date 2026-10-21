@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="/assets/css/styles.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -73,11 +74,11 @@
     <section aria-label="Crop tool">
       <div id="emptyState">
         <div class="dropzone" id="dropZone" role="button" tabindex="0" aria-label="Upload a PDF shipping label">
-          <p class="dz-title">Drag &amp; drop your label PDF here</p>
+          <p class="dz-title">Drag &amp; drop your label PDFs here</p>
           <p>or</p>
-          <p><button class="btn primary" id="browseBtn" type="button">Choose PDF File</button></p>
-          <p class="hint">Accepts .pdf — single or multi-page. Works with Amazon, Etsy, eBay, Vinted, DHL, UPS, USPS and other carrier labels.</p>
-          <input type="file" id="fileInput" accept=".pdf,application/pdf" hidden>
+          <p><button class="btn primary" id="browseBtn" type="button">Choose PDF Files</button></p>
+          <p class="hint">Accepts .pdf — single or multi-page, one file or a whole batch at once. Works with Amazon, Etsy, eBay, Vinted, DHL, UPS, USPS and other carrier labels.</p>
+          <input type="file" id="fileInput" accept=".pdf,application/pdf" multiple hidden>
         </div>
       </div>
 
@@ -85,6 +86,7 @@
         <div class="btn-row" role="toolbar" aria-label="Crop actions">
           <button class="btn" id="btnDetectAll" type="button">Auto-detect all pages</button>
           <button class="btn" id="btnCopyAll" type="button">Copy this crop to all pages</button>
+          <button class="btn" id="btnAdd" type="button">Add more PDFs</button>
           <button class="btn" id="btnReset" type="button">Start over</button>
         </div>
         <div class="tool-layout">
@@ -110,6 +112,7 @@
             <div class="btn-row">
               <button class="btn primary" id="btnDownload" type="button">Download 4×6 PDF</button>
               <button class="btn" id="btnPrint" type="button">Print</button>
+              <button class="btn" id="btnZip" type="button" hidden>Download ZIP (one PDF per file)</button>
             </div>
             <div class="export-opts">
               <label for="sizeSelect">Output size:

@@ -55,13 +55,27 @@
     var skip = $('skipBlank') && $('skipBlank').checked;
     return state.pages.filter(function (p) { return !(skip && p.blank); });
   }
+  function distinctSrcs() {
+    var seen = {}, out = [];
+    state.pages.forEach(function (p) {
+      if (!seen[p.src]) { seen[p.src] = 1; out.push(p.src); }
+    });
+    return out;
+  }
+  function syncZipBtn() {
+    var b = $('btnZip');
+    if (!b) return;
+    // ZIP export only makes sense with 2+ source files (and JSZip loaded).
+    b.hidden = !(typeof JSZip !== 'undefined' && distinctSrcs().length >= 2);
+  }
 
   var MIN_SIZE = 0.03; // min crop-box edge, normalized units
 
-  var state = { pdfDoc: null, pages: [], current: 0, fileName: 'labels' };
+  var state = { docs: [], pages: [], current: 0 };
   // pages[i] = { page, wPt, hPt,
   //   rect:{x,y,w,h} normalized 0..1 (y-down) in the page's ROTATED frame,
-  //   rot: 0|90|180|270, blank: bool, extra: bool, thumb }
+  //   rot: 0|90|180|270, blank: bool, extra: bool, thumb,
+  //   src: base name of the PDF file this page came from (batch support) }
 
   function setStatus(msg, isError) {
     var el = $('status');
@@ -70,7 +84,7 @@
   }
 
   function resetAll() {
-    state.pdfDoc = null;
+    state.docs = [];
     state.pages = [];
     state.current = 0;
     $('pageList').innerHTML = '';
@@ -78,6 +92,7 @@
     $('emptyState').hidden = false;
     var fi = $('fileInput');
     if (fi) fi.value = '';
+    syncZipBtn();
     setStatus('');
   }
 
@@ -93,36 +108,78 @@
       dropZone.addEventListener(ev, function (e) { e.preventDefault(); dropZone.classList.remove('drag'); });
     });
     dropZone.addEventListener('drop', function (e) {
-      var f = e.dataTransfer.files && e.dataTransfer.files[0];
-      if (f) loadFile(f);
+      var fs = e.dataTransfer.files;
+      if (fs && fs.length) loadFiles(fs);
     });
     fileInput.addEventListener('change', function () {
-      var f = fileInput.files && fileInput.files[0];
-      if (f) loadFile(f);
+      if (fileInput.files && fileInput.files.length) loadFiles(fileInput.files);
     });
+    var addBtn = $('btnAdd');
+    if (addBtn) {
+      addBtn.addEventListener('click', function () { fileInput.click(); });
+    }
   }
 
-  async function loadFile(file) {
-    resetAll();
-    if (!/\.pdf$/i.test(file.name || '')) {
-      setStatus('Please choose a PDF file (.pdf).', true);
+  // Batch intake: one or more PDFs at once. Pages from every file are
+  // APPENDED to the workspace (use "Start over" to clear); each page
+  // remembers its source file so ZIP export can emit one PDF per file.
+  // A bad file is skipped and reported; the rest still load.
+  async function loadFiles(fileList) {
+    var files = Array.prototype.slice.call(fileList || []);
+    if (!files.length) return;
+    var addedPages = 0, problems = [];
+    for (var fi = 0; fi < files.length; fi++) {
+      var file = files[fi];
+      if (!/\.pdf$/i.test(file.name || '')) {
+        problems.push((file.name || 'a file') + ' (not a PDF)');
+        continue;
+      }
+      setStatus('Loading file ' + (fi + 1) + ' of ' + files.length + ': ' + file.name + '\u2026');
+      var base = (file.name || 'labels').replace(/\.pdf$/i, '') || 'labels';
+      var res = await loadOnePdf(file, base);
+      if (res.error) problems.push(file.name + ' (' + res.error + ')');
+      else addedPages += res.pages;
+    }
+    if (!state.pages.length) {
+      setStatus('Could not load any of the selected files.' +
+        (problems.length ? ' Skipped: ' + problems.join('; ') + '.' : ''), true);
       return;
     }
-    state.fileName = (file.name || 'labels').replace(/\.pdf$/i, '') || 'labels';
+    $('emptyState').hidden = true;
+    $('toolUI').hidden = false;
+    await selectPage(state.current);
+    syncZipBtn();
+    if (addedPages === 0) {
+      setStatus('No new pages were added.' +
+        (problems.length ? ' Skipped: ' + problems.join('; ') + '.' : ''), true);
+      return;
+    }
+    var srcs = distinctSrcs();
+    var blanks = state.pages.filter(function (p) { return p.blank; }).length;
+    var msg = 'Ready \u2014 ' + state.pages.length + ' page' + (state.pages.length === 1 ? '' : 's') +
+      ' from ' + srcs.length + (srcs.length === 1 ? ' file' : ' files') + '.';
+    if (blanks > 0) {
+      msg += ' ' + blanks + ' blank page' + (blanks === 1 ? '' : 's') + ' will be skipped on export.';
+    }
+    if (problems.length) msg += ' Skipped: ' + problems.join('; ') + '.';
+    msg += ' Drag the blue box to adjust the crop, then download.';
+    setStatus(msg);
+  }
+
+  // Load one PDF and append its pages. Returns {pages:n} or {error:'…'}.
+  async function loadOnePdf(file, base) {
     var bytes;
     try {
       bytes = new Uint8Array(await file.arrayBuffer());
     } catch (e) {
-      setStatus('Could not read that file. Please try again.', true);
-      return;
+      return { error: 'could not be read' };
     }
     // Magic-byte check: %PDF-
     if (!(bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 &&
           bytes[3] === 0x46 && bytes[4] === 0x2D)) {
-      setStatus('That file does not look like a PDF.', true);
-      return;
+      return { error: 'not a real PDF' };
     }
-    setStatus('Loading PDF\u2026');
+    var doc;
     try {
       // Timeout guard: a misconfigured worker (or a stalled CDN) must never
       // leave the UI stuck on "Loading PDF…" forever.
@@ -132,41 +189,29 @@
           reject({ name: 'LoadTimeout', message: 'Timed out while loading the PDF.' });
         }, 30000);
       });
-      state.pdfDoc = await Promise.race([loadPromise, timeoutPromise]);
+      doc = await Promise.race([loadPromise, timeoutPromise]);
     } catch (err) {
-      if (err && err.name === 'PasswordException') {
-        setStatus('This PDF is password-protected. Please remove the password in your PDF reader and try again.', true);
-      } else if (err && err.name === 'LoadTimeout') {
-        setStatus('Loading the PDF timed out. Please check your connection and try again.', true);
-      } else {
-        setStatus('Could not read this PDF. It may be corrupted.', true);
-      }
-      return;
+      if (err && err.name === 'PasswordException') return { error: 'password-protected' };
+      if (err && err.name === 'LoadTimeout') return { error: 'loading timed out' };
+      return { error: 'corrupted or unreadable' };
     }
-    var n = state.pdfDoc.numPages;
-    setStatus('Detecting the label on ' + n + (n === 1 ? ' page\u2026' : ' pages\u2026'));
+    state.docs.push(doc);
+    var n = doc.numPages, added = 0;
     for (var i = 1; i <= n; i++) {
-      var page = await state.pdfDoc.getPage(i);
+      var page = await doc.getPage(i);
       var vp1 = page.getViewport({ scale: 1 }); // scale 1 => 72 DPI => CSS px == PDF points
       var det = await autoDetect(page, 0);
       var thumb = await renderThumb(page, 0);
       state.pages.push({
         page: page, wPt: vp1.width, hPt: vp1.height,
         rect: { x: det.x, y: det.y, w: det.w, h: det.h },
-        rot: 0, blank: det.blank, extra: det.extra, thumb: thumb
+        rot: 0, blank: det.blank, extra: det.extra, thumb: thumb,
+        src: base
       });
+      added++;
       renderPageList();
     }
-    $('emptyState').hidden = true;
-    $('toolUI').hidden = false;
-    selectPage(0);
-    var blanks = state.pages.filter(function (p) { return p.blank; }).length;
-    var msg = 'Ready \u2014 drag the blue box to adjust the crop, then download.';
-    if (blanks > 0) {
-      msg = 'Ready \u2014 detected ' + blanks + ' blank page' + (blanks === 1 ? '' : 's') +
-        ' (skipped on export). Drag the blue box to adjust the crop, then download.';
-    }
-    setStatus(msg);
+    return { pages: added };
   }
 
   // ---------------- bbox auto-detect ----------------
@@ -508,9 +553,8 @@
   // For each exported page: render the page at 200 DPI in its rotated frame,
   // cut out the crop rect, scale to FIT inside the output page (aspect
   // preserved, centered, white background — never stretched), embed as PNG.
-  async function buildOutputPdf() {
+  async function buildOutputPdf(work) {
     var sz = outSize();
-    var work = exportPages();
     if (!work.length) throw new Error('all pages are blank');
     var out = await PDFLib.PDFDocument.create();
     var total = work.length;
@@ -551,8 +595,7 @@
     return await out.save();
   }
 
-  function downloadBytes(bytes, filename) {
-    var blob = new Blob([bytes], { type: 'application/pdf' });
+  function downloadBlob(blob, filename) {
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
@@ -561,7 +604,10 @@
     a.click();
     a.remove();
     setTimeout(function () { URL.revokeObjectURL(url); }, 8000);
-    return url;
+  }
+
+  function downloadBytes(bytes, filename) {
+    downloadBlob(new Blob([bytes], { type: 'application/pdf' }), filename);
   }
 
   // ---------------- buttons ----------------
@@ -611,10 +657,12 @@
       try {
         btn.disabled = true;
         var sz = outSize();
-        var bytes = await buildOutputPdf();
-        var fname = state.fileName + sz.fileSuffix;
+        var work = exportPages();
+        var bytes = await buildOutputPdf(work);
+        var srcs = distinctSrcs();
+        var fname = (srcs.length === 1 ? srcs[0] : 'labels') + sz.fileSuffix;
         downloadBytes(bytes, fname);
-        var n = exportPages().length;
+        var n = work.length;
         setStatus('Done \u2014 ' + fname + ' downloaded (' + n + ' page' + (n === 1 ? '' : 's') +
           '). Print it at 100% scale on ' + sz.paperName + ' paper.');
       } catch (e) {
@@ -628,13 +676,49 @@
       }
     });
 
+    // Batch ZIP: one cropped PDF per source file, zipped together.
+    var zipBtn = $('btnZip');
+    if (zipBtn) {
+      zipBtn.addEventListener('click', async function () {
+        try {
+          zipBtn.disabled = true;
+          var sz = outSize();
+          var work = exportPages();
+          if (!work.length) throw new Error('all pages are blank');
+          var groups = {}, order = [];
+          work.forEach(function (p) {
+            if (!groups[p.src]) { groups[p.src] = []; order.push(p.src); }
+            groups[p.src].push(p);
+          });
+          var zip = new JSZip();
+          for (var gi = 0; gi < order.length; gi++) {
+            var bytes = await buildOutputPdf(groups[order[gi]]);
+            zip.file(order[gi] + sz.fileSuffix, bytes);
+          }
+          var blob = await zip.generateAsync({ type: 'blob' });
+          var zname = 'labels' + sz.fileSuffix.replace(/\.pdf$/i, '.zip');
+          downloadBlob(blob, zname);
+          setStatus('Done \u2014 ' + zname + ' downloaded (' + order.length +
+            ' cropped PDFs, ' + work.length + ' page' + (work.length === 1 ? '' : 's') + ' total).');
+        } catch (e) {
+          if (e && /blank/.test(e.message || '')) {
+            setStatus('All pages are blank \u2014 nothing to export.', true);
+          } else {
+            setStatus('Something went wrong while building the ZIP. Please try again.', true);
+          }
+        } finally {
+          zipBtn.disabled = false;
+        }
+      });
+    }
+
     var printFrame = null;
     $('btnPrint').addEventListener('click', async function () {
       var btn = $('btnPrint');
       try {
         btn.disabled = true;
         setStatus('Preparing print\u2026');
-        var bytes = await buildOutputPdf();
+        var bytes = await buildOutputPdf(exportPages());
         var blob = new Blob([bytes], { type: 'application/pdf' });
         var url = URL.createObjectURL(blob);
         if (!printFrame) {
