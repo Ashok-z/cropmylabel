@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DHL Shipping Label Crop to 4×6 — Free PDF Cropper</title>
+  <meta name="description" content="Crop DHL shipping label PDFs to 4×6 inch for thermal printers. Free browser tool — no upload, no watermark, no sign-up. Handles A4 and Letter label PDFs, single or multi-page.">
+  <link rel="canonical" href="https://cropmylabel.com/dhl-shipping-label-crop-4x6/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="DHL Label Crop to 4×6 — Free, No Watermark">
+  <meta property="og:description" content="Your DHL label PDF is on an A4 or Letter page? Crop it to a true 4×6 inch PDF and print it cleanly on any thermal printer.">
+  <meta property="og:url" content="https://cropmylabel.com/dhl-shipping-label-crop-4x6/">
+  <meta name="twitter:card" content="summary">
+  <link rel="stylesheet" href="/assets/css/styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What size is a DHL shipping label?",
+        "acceptedAnswer": { "@type": "Answer", "text": "4×6 inch (101.6×152.4 mm) is the standard shipping label size for DHL, and the size 4×6 thermal printers use. Some printer drivers list the near-identical 100×150 mm size instead — this tool can export either." }
+      },
+      {
+        "@type": "Question",
+        "name": "My DHL PDF contains labels on several pages. Can I crop them all at once?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. The tool works with multi-page PDFs: every page gets its own auto-detected crop box, you can adjust pages individually, and one download exports all of them as 4×6 pages." }
+      },
+      {
+        "@type": "Question",
+        "name": "Will the DHL barcode still scan after cropping?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes — the cropped label is scaled to fit the 4×6 page without stretching, so the barcode keeps its proportions. Print at exactly 100% scale; shrinking is what breaks scannability." }
+      },
+      {
+        "@type": "Question",
+        "name": "Do I need to install software or create an account?",
+        "acceptedAnswer": { "@type": "Answer", "text": "No. The cropper runs 100% in your browser — no install, no sign-up, no watermark, and your label PDF is never uploaded to a server." }
+      }
+    ]
+  }
+  </script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%232563eb'/%3E%3Crect x='14' y='18' width='36' height='28' rx='2' fill='none' stroke='white' stroke-width='4'/%3E%3C/svg%3E">
+</head>
+<body>
+  <header class="site-header">
+    <div class="nav-inner">
+      <a class="brand" href="/">ShipLabel<span>Crop</span></a>
+      <nav class="nav-links" aria-label="Main">
+        <a href="/">Crop Tool</a>
+        <a href="/how-to.html">How-To Guide</a>
+        <a href="/faq.html">FAQ</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <h1>Crop DHL Shipping Labels to 4×6</h1>
+      <p class="lead">DHL labels are made for 4×6&nbsp;inch stock — but the PDF you download often puts that label on a full A4 or Letter page. Crop the page down to the label below and print a perfect 4×6 every time.</p>
+    </section>
+
+    <div class="privacy-banner" role="note">
+      <span class="lock" aria-hidden="true">🔒</span>
+      <div>
+        <strong>100% in your browser — files never leave your device.</strong>
+        No upload, no watermark, no account, free forever. Your labels stay private because they never touch our servers.
+      </div>
+    </div>
+
+    <section aria-label="Crop tool">
+      <div id="emptyState">
+        <div class="dropzone" id="dropZone" role="button" tabindex="0" aria-label="Upload a PDF shipping label">
+          <p class="dz-title">Drag &amp; drop your label PDF here</p>
+          <p>or</p>
+          <p><button class="btn primary" id="browseBtn" type="button">Choose PDF File</button></p>
+          <p class="hint">Accepts .pdf — single or multi-page. Works with Amazon, Etsy, eBay, Vinted, DHL, UPS, USPS and other carrier labels.</p>
+          <input type="file" id="fileInput" accept=".pdf,application/pdf" hidden>
+        </div>
+      </div>
+
+      <div id="toolUI" hidden>
+        <div class="btn-row" role="toolbar" aria-label="Crop actions">
+          <button class="btn" id="btnDetectAll" type="button">Auto-detect all pages</button>
+          <button class="btn" id="btnCopyAll" type="button">Copy this crop to all pages</button>
+          <button class="btn" id="btnReset" type="button">Start over</button>
+        </div>
+        <div class="tool-layout">
+          <div>
+            <div class="page-list" id="pageList" aria-label="Pages"></div>
+          </div>
+          <div class="preview-col">
+            <div class="preview-meta">
+              <span id="pageLabel">Page 1</span>
+              <span><button class="btn" id="btnRotate" type="button" title="Rotate this page 90° clockwise">⟳ Rotate 90°</button></span>
+              <span class="hint">Drag the blue box to move it · drag a corner dot to resize</span>
+            </div>
+            <p class="page-hint" id="pageHint" role="status" aria-live="polite"></p>
+            <div class="preview-wrap" id="previewWrap">
+              <canvas id="previewCanvas"></canvas>
+              <div class="crop-overlay" id="cropOverlay" aria-label="Crop area">
+                <span class="handle nw" data-corner="nw"></span>
+                <span class="handle ne" data-corner="ne"></span>
+                <span class="handle sw" data-corner="sw"></span>
+                <span class="handle se" data-corner="se"></span>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="btn primary" id="btnDownload" type="button">Download 4×6 PDF</button>
+              <button class="btn" id="btnPrint" type="button">Print</button>
+            </div>
+            <div class="export-opts">
+              <label for="sizeSelect">Output size:
+                <select id="sizeSelect">
+                  <option value="4x6" selected>4×6 in (101.6 × 152.4 mm)</option>
+                  <option value="100x150">100 × 150 mm</option>
+                </select>
+              </label>
+              <label title="When on, blank pages are left out of the exported PDF (and exporting an all-blank file is blocked). When off, blank pages export as-is."><input type="checkbox" id="skipBlank" checked> Skip blank pages</label>
+            </div>
+            <p class="hint" id="outputHint"></p>
+          </div>
+        </div>
+      </div>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section aria-label="Why DHL label PDFs need cropping">
+      <h2>Why a DHL label PDF needs cropping</h2>
+      <p>4×6&nbsp;inch is the standard shipping label size for DHL — the same standard used by UPS, FedEx and USPS — and it is the size thermal label printers are built around. The catch is the file: when a DHL label is downloaded as a PDF, it frequently arrives on an A4 or Letter page, with the label occupying only part of the sheet.</p>
+      <p>Send that page straight to a 4×6 thermal printer and the print driver has to shrink or clip it to fit. The result is a label that prints too small, loses its edges, or produces a barcode the courier's scanner can't read. Cropping first — so the PDF page is the label, nothing more — removes the mismatch entirely, and the printed label comes out at exactly the size DHL expects.</p>
+    </section>
+
+    <section aria-label="How to crop a DHL label">
+      <h2>How to crop a DHL label to 4×6</h2>
+      <ol class="tight">
+        <li><strong>Save the DHL label as a PDF.</strong> Download the label file for your shipment and keep it as-is — whether the page is A4 or Letter, the tool handles both.</li>
+        <li><strong>Drop the PDF into the cropper above.</strong> Everything runs in your browser; the file is never uploaded to a server.</li>
+        <li><strong>Check the blue crop box.</strong> Auto-detect finds the label area on the page. Make sure the barcode and every address line are inside the box, and drag a corner dot to fine-tune it.</li>
+        <li><strong>Choose the output size and download.</strong> Use 4×6&nbsp;in, or 100×150&nbsp;mm if that's the size your printer driver lists. For multi-page PDFs, each page is cropped individually — or copy one page's crop to all pages in a click.</li>
+        <li><strong>Print at 100% scale</strong> with the paper size set to 4×6. Turn off "Fit to page" — the cropped PDF already matches your label stock exactly.</li>
+      </ol>
+    </section>
+
+    <section aria-label="DHL label FAQ">
+      <h2>DHL label questions</h2>
+
+      <div class="faq-item">
+        <h2>What size is a DHL shipping label?</h2>
+        <div class="a"><p>4×6&nbsp;inch (101.6×152.4&nbsp;mm) is the standard shipping label size for DHL, and the size 4×6 thermal printers use. Some printer drivers list the near-identical 100×150&nbsp;mm size instead — this tool can export either, so pick the one your driver names.</p></div>
+      </div>
+
+      <div class="faq-item">
+        <h2>My DHL PDF contains labels on several pages. Can I crop them all at once?</h2>
+        <div class="a"><p>Yes. The tool works with multi-page PDFs: every page gets its own auto-detected crop box, you can adjust pages individually, and one download exports all of them as 4×6 pages.</p></div>
+      </div>
+
+      <div class="faq-item">
+        <h2>Will the DHL barcode still scan after cropping?</h2>
+        <div class="a"><p>Yes — the cropped label is scaled to fit inside the 4×6 page without stretching, so the barcode keeps its exact proportions. Print at exactly 100% scale; shrinking to fit is what breaks scannability.</p></div>
+      </div>
+
+      <div class="faq-item">
+        <h2>Do I need to install software or create an account?</h2>
+        <div class="a"><p>No. The cropper runs 100% in your browser — no install, no sign-up, no watermark, and your label PDF is never uploaded to a server. See the <a href="/faq.html">FAQ</a> for more on how it works.</p></div>
+      </div>
+
+      <p>Also sell on marketplaces? The <a href="/vinted-shipping-label-4x6/">Vinted label guide</a> and the <a href="/royal-mail-click-drop-label-4x6/">Royal Mail Click &amp; Drop guide</a> use the same free tool, and the <a href="/how-to.html">4×6 printing guide</a> covers printer settings in depth.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <span>© 2026 ShipLabelCrop — free 4×6 shipping label tools.</span>
+      <nav aria-label="Footer">
+        <a href="/">Crop Tool</a>
+        <a href="/how-to.html">How-To Guide</a>
+        <a href="/faq.html">FAQ</a>
+      </nav>
+      <nav aria-label="Platform label guides">
+        <span>Platform label guides:</span>
+        <a href="/vinted-shipping-label-4x6/">Vinted 4×6</a>
+        <a href="/dhl-shipping-label-crop-4x6/">DHL 4×6</a>
+        <a href="/royal-mail-click-drop-label-4x6/">Royal Mail Click &amp; Drop 4×6</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script src="/assets/js/app.js"></script>
+</body>
+</html>

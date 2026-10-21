@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Royal Mail Click &amp; Drop Label 4×6 — Crop Label PDFs Free</title>
+  <meta name="description" content="Crop Royal Mail Click & Drop label PDFs to 4×6 in (100×150 mm) for your thermal printer. Free in-browser tool — no upload, no watermark, no sign-up.">
+  <link rel="canonical" href="https://cropmylabel.com/royal-mail-click-drop-label-4x6/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Royal Mail Click &amp; Drop Labels at 4×6 (100×150 mm)">
+  <meta property="og:description" content="Turn an A4 Click & Drop label PDF into a print-ready 4×6 in / 100×150 mm label for your thermal printer. Free and private — nothing is uploaded.">
+  <meta property="og:url" content="https://cropmylabel.com/royal-mail-click-drop-label-4x6/">
+  <meta name="twitter:card" content="summary">
+  <link rel="stylesheet" href="/assets/css/styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What size labels do I need for Click & Drop?",
+        "acceptedAnswer": { "@type": "Answer", "text": "4×6 in (100×150 mm) thermal labels are the UK e-commerce standard format and are suitable for Click & Drop labels. This tool exports exactly that size — in either the inch or metric version." }
+      },
+      {
+        "@type": "Question",
+        "name": "4×6 in or 100×150 mm — which output should I choose?",
+        "acceptedAnswer": { "@type": "Answer", "text": "They are nearly identical: 4×6 in is 101.6×152.4 mm, while 100×150 mm is a fraction smaller. Choose whichever your printer driver names for your label stock, so the PDF page and the physical label match exactly." }
+      },
+      {
+        "@type": "Question",
+        "name": "My Click & Drop PDF has a label plus other content on the page. Can the tool separate them?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. Auto-detect looks for the label area on the page rather than the whole sheet, and if it includes too much or too little, you can drag the crop box to cover exactly the label before downloading." }
+      },
+      {
+        "@type": "Question",
+        "name": "Is my customers' address data uploaded anywhere?",
+        "acceptedAnswer": { "@type": "Answer", "text": "No. The tool runs entirely in your browser — no upload, no account, no watermark, and nothing is stored." }
+      }
+    ]
+  }
+  </script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%232563eb'/%3E%3Crect x='14' y='18' width='36' height='28' rx='2' fill='none' stroke='white' stroke-width='4'/%3E%3C/svg%3E">
+</head>
+<body>
+  <header class="site-header">
+    <div class="nav-inner">
+      <a class="brand" href="/">ShipLabel<span>Crop</span></a>
+      <nav class="nav-links" aria-label="Main">
+        <a href="/">Crop Tool</a>
+        <a href="/how-to.html">How-To Guide</a>
+        <a href="/faq.html">FAQ</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <h1>Crop Royal Mail Click &amp; Drop Labels to 4×6</h1>
+      <p class="lead">Buying postage in Click &amp; Drop gives you a label PDF — but not always a 4×6 page. Crop it below to an exact 4×6&nbsp;in (100×150&nbsp;mm) PDF that your thermal printer will print perfectly first time.</p>
+    </section>
+
+    <div class="privacy-banner" role="note">
+      <span class="lock" aria-hidden="true">🔒</span>
+      <div>
+        <strong>100% in your browser — files never leave your device.</strong>
+        No upload, no watermark, no account, free forever. Your labels stay private because they never touch our servers.
+      </div>
+    </div>
+
+    <section aria-label="Crop tool">
+      <div id="emptyState">
+        <div class="dropzone" id="dropZone" role="button" tabindex="0" aria-label="Upload a PDF shipping label">
+          <p class="dz-title">Drag &amp; drop your label PDF here</p>
+          <p>or</p>
+          <p><button class="btn primary" id="browseBtn" type="button">Choose PDF File</button></p>
+          <p class="hint">Accepts .pdf — single or multi-page. Works with Amazon, Etsy, eBay, Vinted, DHL, UPS, USPS and other carrier labels.</p>
+          <input type="file" id="fileInput" accept=".pdf,application/pdf" hidden>
+        </div>
+      </div>
+
+      <div id="toolUI" hidden>
+        <div class="btn-row" role="toolbar" aria-label="Crop actions">
+          <button class="btn" id="btnDetectAll" type="button">Auto-detect all pages</button>
+          <button class="btn" id="btnCopyAll" type="button">Copy this crop to all pages</button>
+          <button class="btn" id="btnReset" type="button">Start over</button>
+        </div>
+        <div class="tool-layout">
+          <div>
+            <div class="page-list" id="pageList" aria-label="Pages"></div>
+          </div>
+          <div class="preview-col">
+            <div class="preview-meta">
+              <span id="pageLabel">Page 1</span>
+              <span><button class="btn" id="btnRotate" type="button" title="Rotate this page 90° clockwise">⟳ Rotate 90°</button></span>
+              <span class="hint">Drag the blue box to move it · drag a corner dot to resize</span>
+            </div>
+            <p class="page-hint" id="pageHint" role="status" aria-live="polite"></p>
+            <div class="preview-wrap" id="previewWrap">
+              <canvas id="previewCanvas"></canvas>
+              <div class="crop-overlay" id="cropOverlay" aria-label="Crop area">
+                <span class="handle nw" data-corner="nw"></span>
+                <span class="handle ne" data-corner="ne"></span>
+                <span class="handle sw" data-corner="sw"></span>
+                <span class="handle se" data-corner="se"></span>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="btn primary" id="btnDownload" type="button">Download 4×6 PDF</button>
+              <button class="btn" id="btnPrint" type="button">Print</button>
+            </div>
+            <div class="export-opts">
+              <label for="sizeSelect">Output size:
+                <select id="sizeSelect">
+                  <option value="4x6" selected>4×6 in (101.6 × 152.4 mm)</option>
+                  <option value="100x150">100 × 150 mm</option>
+                </select>
+              </label>
+              <label title="When on, blank pages are left out of the exported PDF (and exporting an all-blank file is blocked). When off, blank pages export as-is."><input type="checkbox" id="skipBlank" checked> Skip blank pages</label>
+            </div>
+            <p class="hint" id="outputHint"></p>
+          </div>
+        </div>
+      </div>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section aria-label="Why Click and Drop PDFs need cropping">
+      <h2>Why Click &amp; Drop PDFs don't always fit your label printer</h2>
+      <p>4×6&nbsp;in (100×150&nbsp;mm) thermal labels are the standard format for UK e-commerce, and they are the right size for Royal Mail Click &amp; Drop labels. But the PDF you download from Click &amp; Drop can arrive as an A4 page, with the label in one area of the sheet and the rest of the page blank or filled with other content.</p>
+      <p>Print that A4 page on 4×6 label stock and the printer shrinks everything to fit — addresses come out tiny, edges can clip, and barcodes may stop scanning at the Post Office counter. Cropping the PDF so the page matches the label stock is the simple fix, and it is what this tool does, entirely in your browser.</p>
+    </section>
+
+    <section aria-label="How to crop a Click and Drop label">
+      <h2>How to crop a Click &amp; Drop label to 4×6</h2>
+      <ol class="tight">
+        <li><strong>Download your label PDF from Click &amp; Drop</strong> after buying postage. If you are printing several orders, keep the PDF exactly as downloaded — multi-page files are fine.</li>
+        <li><strong>Drop the PDF into the cropper above.</strong> Everything runs in your browser; the label — and the addresses on it — never leave your device.</li>
+        <li><strong>Check the blue crop box.</strong> Auto-detect finds the label on the page. Confirm the barcode and both addresses are fully inside the box, and drag a corner dot to adjust it if needed.</li>
+        <li><strong>Pick your output size:</strong> 4×6&nbsp;in, or 100×150&nbsp;mm if that is what your printer driver lists for your labels. Then download the cropped PDF.</li>
+        <li><strong>Print at 100% scale</strong> with the paper size matching your labels, and avoid "fit to page" — the cropped PDF is already exactly the right size.</li>
+      </ol>
+    </section>
+
+    <section aria-label="Click and Drop label FAQ">
+      <h2>Click &amp; Drop label questions</h2>
+
+      <div class="faq-item">
+        <h2>What size labels do I need for Click &amp; Drop?</h2>
+        <div class="a"><p>4×6&nbsp;in (100×150&nbsp;mm) thermal labels are the UK e-commerce standard format and are suitable for Click &amp; Drop labels. This tool exports exactly that size — in either the inch or the metric version.</p></div>
+      </div>
+
+      <div class="faq-item">
+        <h2>4×6 in or 100×150 mm — which output should I choose?</h2>
+        <div class="a"><p>They are nearly identical: 4×6&nbsp;in is 101.6×152.4&nbsp;mm, while 100×150&nbsp;mm is a fraction smaller. Choose whichever your printer driver names for your label stock, so the PDF page and the physical label match exactly.</p></div>
+      </div>
+
+      <div class="faq-item">
+        <h2>My Click &amp; Drop PDF has a label plus other content on the page. Can the tool separate them?</h2>
+        <div class="a"><p>Yes. Auto-detect looks for the label area on the page rather than the whole sheet, and if it includes too much or too little, you can drag the crop box to cover exactly the label before downloading. The general <a href="/faq.html">FAQ</a> explains how detection works.</p></div>
+      </div>
+
+      <div class="faq-item">
+        <h2>Is my customers' address data uploaded anywhere?</h2>
+        <div class="a"><p>No. The tool runs entirely in your browser — no upload, no account, no watermark, and nothing is stored. Your label PDFs stay on your own computer from start to finish.</p></div>
+      </div>
+
+      <p>Selling through other channels too? See the <a href="/vinted-shipping-label-4x6/">Vinted label guide</a> or the <a href="/dhl-shipping-label-crop-4x6/">DHL label crop guide</a>, read the <a href="/how-to.html">step-by-step 4×6 printing guide</a>, or go straight to the <a href="/">crop tool on the homepage</a>.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <span>© 2026 ShipLabelCrop — free 4×6 shipping label tools.</span>
+      <nav aria-label="Footer">
+        <a href="/">Crop Tool</a>
+        <a href="/how-to.html">How-To Guide</a>
+        <a href="/faq.html">FAQ</a>
+      </nav>
+      <nav aria-label="Platform label guides">
+        <span>Platform label guides:</span>
+        <a href="/vinted-shipping-label-4x6/">Vinted 4×6</a>
+        <a href="/dhl-shipping-label-crop-4x6/">DHL 4×6</a>
+        <a href="/royal-mail-click-drop-label-4x6/">Royal Mail Click &amp; Drop 4×6</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script src="/assets/js/app.js"></script>
+</body>
+</html>
