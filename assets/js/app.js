@@ -694,14 +694,23 @@
           });
           var zip = new JSZip();
           var nameCounts = {};
+          var usedNames = {};
           for (var gi = 0; gi < order.length; gi++) {
             var g = groups[order[gi]];
             var gbytes = await buildOutputPdf(g.pages);
-            // Same-named source files stay separate entries: label-4x6.pdf,
-            // label-2-4x6.pdf, label-3-4x6.pdf, …
-            nameCounts[g.name] = (nameCounts[g.name] || 0) + 1;
-            var dup = nameCounts[g.name] > 1 ? '-' + nameCounts[g.name] : '';
-            zip.file(g.name + dup + sz.fileSuffix, gbytes);
+            // Output names must be unique across the WHOLE zip, not just per
+            // source name: the 2nd "label.pdf" takes "label-2-4x6.pdf",
+            // which a source literally named "label-2.pdf" would also claim.
+            // Keep incrementing until the full candidate name is free.
+            var n = (nameCounts[g.name] || 0) + 1;
+            var candidate;
+            do {
+              candidate = g.name + (n > 1 ? '-' + n : '') + sz.fileSuffix;
+              n++;
+            } while (usedNames[candidate]);
+            nameCounts[g.name] = n - 1;
+            usedNames[candidate] = 1;
+            zip.file(candidate, gbytes);
           }
           var blob = await zip.generateAsync({ type: 'blob' });
           var zname = 'labels' + sz.fileSuffix.replace(/\.pdf$/i, '.zip');
