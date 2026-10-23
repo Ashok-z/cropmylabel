@@ -58,7 +58,7 @@
   function distinctSrcs() {
     var seen = {}, out = [];
     state.pages.forEach(function (p) {
-      if (!seen[p.src]) { seen[p.src] = 1; out.push(p.src); }
+      if (!seen[p.srcId]) { seen[p.srcId] = 1; out.push({ id: p.srcId, name: p.src }); }
     });
     return out;
   }
@@ -71,11 +71,12 @@
 
   var MIN_SIZE = 0.03; // min crop-box edge, normalized units
 
-  var state = { docs: [], pages: [], current: 0 };
+  var state = { docs: [], pages: [], current: 0, srcSeq: 0 };
   // pages[i] = { page, wPt, hPt,
   //   rect:{x,y,w,h} normalized 0..1 (y-down) in the page's ROTATED frame,
   //   rot: 0|90|180|270, blank: bool, extra: bool, thumb,
-  //   src: base name of the PDF file this page came from (batch support) }
+  //   srcId: unique id of the imported file this page came from,
+  //   src: that file's base name (display / export naming only) }
 
   function setStatus(msg, isError) {
     var el = $('status');
@@ -87,6 +88,7 @@
     state.docs = [];
     state.pages = [];
     state.current = 0;
+    state.srcSeq = 0;
     $('pageList').innerHTML = '';
     $('toolUI').hidden = true;
     $('emptyState').hidden = false;
@@ -136,7 +138,7 @@
       }
       setStatus('Loading file ' + (fi + 1) + ' of ' + files.length + ': ' + file.name + '\u2026');
       var base = (file.name || 'labels').replace(/\.pdf$/i, '') || 'labels';
-      var res = await loadOnePdf(file, base);
+      var res = await loadOnePdf(file, base, ++state.srcSeq);
       if (res.error) problems.push(file.name + ' (' + res.error + ')');
       else addedPages += res.pages;
     }
@@ -167,7 +169,7 @@
   }
 
   // Load one PDF and append its pages. Returns {pages:n} or {error:'…'}.
-  async function loadOnePdf(file, base) {
+  async function loadOnePdf(file, base, srcId) {
     var bytes;
     try {
       bytes = new Uint8Array(await file.arrayBuffer());
@@ -206,7 +208,7 @@
         page: page, wPt: vp1.width, hPt: vp1.height,
         rect: { x: det.x, y: det.y, w: det.w, h: det.h },
         rot: 0, blank: det.blank, extra: det.extra, thumb: thumb,
-        src: base
+        srcId: srcId, src: base
       });
       added++;
       renderPageList();
@@ -660,7 +662,7 @@
         var work = exportPages();
         var bytes = await buildOutputPdf(work);
         var srcs = distinctSrcs();
-        var fname = (srcs.length === 1 ? srcs[0] : 'labels') + sz.fileSuffix;
+        var fname = (srcs.length === 1 ? srcs[0].name : 'labels') + sz.fileSuffix;
         downloadBytes(bytes, fname);
         var n = work.length;
         setStatus('Done \u2014 ' + fname + ' downloaded (' + n + ' page' + (n === 1 ? '' : 's') +
@@ -687,13 +689,19 @@
           if (!work.length) throw new Error('all pages are blank');
           var groups = {}, order = [];
           work.forEach(function (p) {
-            if (!groups[p.src]) { groups[p.src] = []; order.push(p.src); }
-            groups[p.src].push(p);
+            if (!groups[p.srcId]) { groups[p.srcId] = { name: p.src, pages: [] }; order.push(p.srcId); }
+            groups[p.srcId].pages.push(p);
           });
           var zip = new JSZip();
+          var nameCounts = {};
           for (var gi = 0; gi < order.length; gi++) {
-            var bytes = await buildOutputPdf(groups[order[gi]]);
-            zip.file(order[gi] + sz.fileSuffix, bytes);
+            var g = groups[order[gi]];
+            var gbytes = await buildOutputPdf(g.pages);
+            // Same-named source files stay separate entries: label-4x6.pdf,
+            // label-2-4x6.pdf, label-3-4x6.pdf, …
+            nameCounts[g.name] = (nameCounts[g.name] || 0) + 1;
+            var dup = nameCounts[g.name] > 1 ? '-' + nameCounts[g.name] : '';
+            zip.file(g.name + dup + sz.fileSuffix, gbytes);
           }
           var blob = await zip.generateAsync({ type: 'blob' });
           var zname = 'labels' + sz.fileSuffix.replace(/\.pdf$/i, '.zip');
