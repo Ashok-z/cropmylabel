@@ -24,6 +24,17 @@
 
   var $ = function (id) { return document.getElementById(id); };
 
+  // ---- usage analytics (Umami, privacy-friendly) ----
+  // No-op until the Umami script tag is added; events carry COUNTS ONLY —
+  // never file names, page content, or anything from the user's PDFs.
+  function track(name, data) {
+    try {
+      if (window.umami && typeof window.umami.track === 'function') {
+        window.umami.track(name, data);
+      }
+    } catch (e) { /* analytics must never break the tool */ }
+  }
+
   // ---- output sizes: double-check the math ----
   // PDF points: 72 pt = 1 inch  =>  4 in = 288 pt, 6 in = 432 pt. Correct.
   // 100 mm = 100/25.4 in = 3.9370 in => 283.46 pt; 150 mm = 5.9055 in => 425.20 pt.
@@ -129,7 +140,7 @@
   async function loadFiles(fileList) {
     var files = Array.prototype.slice.call(fileList || []);
     if (!files.length) return;
-    var addedPages = 0, problems = [];
+    var addedPages = 0, addedFiles = 0, problems = [];
     for (var fi = 0; fi < files.length; fi++) {
       var file = files[fi];
       if (!/\.pdf$/i.test(file.name || '')) {
@@ -140,7 +151,7 @@
       var base = (file.name || 'labels').replace(/\.pdf$/i, '') || 'labels';
       var res = await loadOnePdf(file, base, ++state.srcSeq);
       if (res.error) problems.push(file.name + ' (' + res.error + ')');
-      else addedPages += res.pages;
+      else { addedPages += res.pages; addedFiles++; }
     }
     if (!state.pages.length) {
       setStatus('Could not load any of the selected files.' +
@@ -165,6 +176,7 @@
     }
     if (problems.length) msg += ' Skipped: ' + problems.join('; ') + '.';
     msg += ' Drag the blue box to adjust the crop, then download.';
+    track('import_success', { files: addedFiles, pages: addedPages, total_files: srcs.length });
     setStatus(msg);
   }
 
@@ -665,6 +677,7 @@
         var fname = (srcs.length === 1 ? srcs[0].name : 'labels') + sz.fileSuffix;
         downloadBytes(bytes, fname);
         var n = work.length;
+        track('download_single', { pages: n, files: srcs.length, size: sz.shortName });
         setStatus('Done \u2014 ' + fname + ' downloaded (' + n + ' page' + (n === 1 ? '' : 's') +
           '). Print it at 100% scale on ' + sz.paperName + ' paper.');
       } catch (e) {
@@ -715,6 +728,7 @@
           var blob = await zip.generateAsync({ type: 'blob' });
           var zname = 'labels' + sz.fileSuffix.replace(/\.pdf$/i, '.zip');
           downloadBlob(blob, zname);
+          track('download_zip', { files: order.length, pages: work.length, size: sz.shortName });
           setStatus('Done \u2014 ' + zname + ' downloaded (' + order.length +
             ' cropped PDFs, ' + work.length + ' page' + (work.length === 1 ? '' : 's') + ' total).');
         } catch (e) {
